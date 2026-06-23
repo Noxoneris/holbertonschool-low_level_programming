@@ -1,0 +1,3 @@
+#!/bin/bash
+# Runs a C file through the preprocessor and saves the result
+gcc -E -P "$CFILE" -o c
