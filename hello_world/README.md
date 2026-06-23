@@ -1,2 +1,2 @@
-# holbertonschool-low_level_programming
-This repository contains C programming projects from Holberton School.
+# hello_world
+This directory contains scripts for C preprocessing, compilation, assembly and linking.
