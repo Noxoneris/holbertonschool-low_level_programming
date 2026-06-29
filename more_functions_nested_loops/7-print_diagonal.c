@@ -1,7 +1,7 @@
 #include "main.h"
 /**
  * print_diagonal - draws a diagonal line on the terminal
- * @n: number of times the character_should be printed and end with a \n
+ * @n: number of times the character_should be printed
  *
  * Return: void
  */
@@ -27,6 +27,7 @@ void print_diagonal(int n)
 			}
 			_putchar('\\');
 			_putchar('\n');
+			i++;
 		}
 	}
 }
