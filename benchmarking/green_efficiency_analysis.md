@@ -91,9 +91,16 @@ We need to align 3 strings : TOTAL, BUILD_DATA, PROCESS, REDUCE followed by a "s
 
 thanks to printf() we will use in to every phases a format specifier writeten as 6 number before the 0 ( written as %.6f) we precise it before in seconds.
 
-we mark: every phase dont have much condition but precise function to it.
+we mark: every phase dont have much condition but precise function to it. 
 
-Result with ./instrumentation_lab
+As the same function than the precedents  programs  we use memory "elapsed" to confirm the time between the beginning and the end of a loop. (each of phases always in second marked by the cpu clock. 
+
+printf("TOTAL seconds: %.6f\n", total_elapsed);
+        printf("BUILD_DATA seconds: %.6f\n", build_elapsed);
+        printf("PROCESS seconds: %.6f\n", process_elapsed);
+        printf("REDUCE seconds: %.6f\n", reduce_elapsed);
+
+As Result with ./instrumentation_lab
 
 TOTAL seconds: 0.000776
 BUILD_DATA seconds: 0.000337
