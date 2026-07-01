@@ -6,6 +6,7 @@ int main(void)
 	int a = 0;
 	int b = 0;
 	int result = 0;
+	float fresult = 0;
 
 	printf("Simple Calculator\n");
 
@@ -37,28 +38,28 @@ int main(void)
 			printf("Result: %d\n", result);
 		}
 		else if (choice == 3)
-                {
-                        printf("A: ");
-                        scanf("%d", &a);
-                        printf("B: ");
-                        scanf("%d", &b);
-                        result = a * b;
-                        printf("Result: %d\n", result);
-                }
+		{
+			printf("A: ");
+			scanf("%d", &a);
+			printf("B: ");
+			scanf("%d", &b);
+			result = a * b;
+			printf("Result: %d\n", result);
+		}
 		else if (choice == 4)
-                {
-                        printf("A: ");
-                        scanf("%d", &a);
-                        printf("B: ");
-                        scanf("%d", &b);
+		{
+			printf("A: ");
+			scanf("%d", &a);
+			printf("B: ");
+			scanf("%d", &b);
 			if (b == 0)
 				printf("Error: division by zero\n");
 			else
 			{
-				result = a / b;
-				printf("Result: %d\n", result);
+				fresult = (float)a / b;
+				printf("Result: %.1f\n", fresult);
 			}
-                }
+		}
 		else if (choice < 1 || choice > 4)
 			printf("Invalid choice\n");
 	}
