@@ -1,9 +1,13 @@
-
 #include <stdio.h>
 
 int main(void)
 {
+
 	int choice = -1;
+	int a = 0;
+	int b = 0;
+	int result = 0;
+
 
 	printf("Simple Calculator\n");
 
@@ -16,7 +20,16 @@ int main(void)
 		printf("0) Quit\n");
 		printf("Choice: ");
 		scanf("%d", &choice);
-		if (choice < 1 || choice > 4)
+		if (choice == 1)
+		{
+			printf("A: ");
+			scanf("%d", &a);
+			printf("B: ");
+			scanf("%d", &b);
+			result = a + b;
+			printf("Result: %d\n", result);
+		}
+		else if (choice < 1 || choice > 4)
 			printf("Invalid choice\n");
 	}
 	printf("Bye!\n");
