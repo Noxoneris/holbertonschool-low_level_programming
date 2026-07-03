@@ -32,5 +32,8 @@ int _atoi(char *s)
 		i++;
 	}
 
-	return (nombre * sign);
+
+	if (sign == 1)
+		return (-nombre);
+	return (nombre);
 }
