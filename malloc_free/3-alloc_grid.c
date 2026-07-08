@@ -2,6 +2,23 @@
 #include <stdlib.h>
 
 /**
+ * free_partial_grid - frees a partially allocated grid
+ * @grid: the grid to free
+ * @allocated_rows: the number of rows already allocated
+ *
+ * Return: nothing
+ */
+void free_partial_grid(int **grid, int allocated_rows)
+{
+	while (allocated_rows > 0)
+	{
+		allocated_rows--;
+		free(grid[allocated_rows]);
+	}
+	free(grid);
+}
+
+/**
  * alloc_grid - returns a pointer to a 2 dimensional array of integers
  * @width: the width of the grid
  * @height: the height of the grid
@@ -31,12 +48,7 @@ int **alloc_grid(int width, int height)
 		grid[h] = malloc(sizeof(int) * width);
 		if (grid[h] == NULL)
 		{
-			while (h > 0)
-			{
-				h--;
-				free(grid[h]);
-			}
-			free(grid);
+			free_partial_grid(grid, h);
 			return (NULL);
 		}
 
