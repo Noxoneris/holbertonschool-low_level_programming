@@ -1,6 +1,21 @@
 #include "main.h"
 #include <stdlib.h>
-#include <string.h>
+
+/**
+ * my_len - calculates the length of a string
+ * @s: the string to measure
+ *
+ * Return: length of the string
+ */
+unsigned int my_len(char *s)
+{
+	unsigned int len;
+
+	len = 0;
+	while (s[len] != '\0')
+		len++;
+	return (len);
+}
 
 /**
  * fill_concat - copies s1 and n bytes of s2 into a new buffer
@@ -37,11 +52,11 @@ char *string_nconcat(char *s1, char *s2, unsigned int n)
 	unsigned int len1, len2;
 	char *result;
 
-	len1 = (s1 == NULL) ? 0 : strlen(s1);
+	len1 = (s1 == NULL) ? 0 : my_len(s1);
 	if (s2 == NULL)
 		len2 = 0;
-	else if (n >= strlen(s2))
-		len2 = strlen(s2);
+	else if (n >= my_len(s2))
+		len2 = my_len(s2);
 	else
 		len2 = n;
 
