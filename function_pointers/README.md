@@ -1,0 +1,1 @@
+Fonction de pointeurs modéré
