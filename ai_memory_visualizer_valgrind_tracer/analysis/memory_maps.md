@@ -138,27 +138,52 @@ Une explication naïve associe souvent tout `NULL` renvoyé par une fonction d'a
 
 ---
 
-## 4. `heap_example.c` — Struct + chaîne allouées, fuite volontaire (⚠️ ANALYSE PARTIELLE)
+## 4. `heap_example.c` — Struct + chaîne allouées, fuite volontaire
 
-Le code fourni s'arrête à `--More--(79%)` dans le terminal ; la fin du fichier (notamment la suite de `main` après la création de `bob`, et un éventuel `free` partiel voire l'appel volontairement incomplet qui cause la fuite annoncée) n'est pas visible dans les captures transmises. Conformément à la consigne « ne pas assumer que l'IA a raison » et pour éviter de documenter un comportement inventé, je documente uniquement ce qui est vérifiable :
+### Exécution réelle (fournie par l'utilisateur, machine locale)
+```
+heap_example: allocations and a deliberate leak
+  alice=0x4a9f480 name=0x4a9f4d0 age=30
+  bob=0x4a9f520 name=0x4a9f570 age=41
+```
+Confirmée par Valgrind :
+```
+6 bytes in 1 blocks are definitely lost in loss record 1 of 1
+   at malloc (vg_replace_malloc.c:447)
+   by person_new (heap_example.c:21)
+   by main (heap_example.c:51)
+LEAK SUMMARY: definitely lost: 6 bytes in 1 blocks
+total heap usage: 5 allocs, 4 frees, 1,066 bytes allocated
+```
 
-### Ce qui est certain à partir du code visible
+### Carte mémoire pas à pas
 
-| Étape | Événement | Zone |
-|---|---|---|
-| `person_new("Alice", 30)` | `malloc(sizeof(Person))` puis `malloc(len+1)` pour le nom | **Heap** (2 allocations séparées et indépendantes par `Person`) |
-| Copie caractère par caractère de `name` vers `p->name` | Écriture heap | Heap |
-| `p->age = age` | Écriture d'un champ heap | Heap |
-| `alice`, `bob` (pointeurs dans `main`) | Stack | Pointent chacun vers un bloc heap `Person` distinct, qui pointe lui-même vers un second bloc heap (le nom) |
-| `person_free_partial(p)` | `free(p)` **sans** `free(p->name)` | Heap | **Fuite mémoire intentionnelle et déjà visible** : le bloc `Person` est libéré mais le bloc `char*` du nom ne l'est jamais dans cette fonction → fuite garantie à chaque appel de `person_free_partial` |
+| Ligne | Événement | Zone mémoire | État |
+|---|---|---|---|
+| L46-47 `alice = NULL; bob = NULL;` | Déclaration de 2 pointeurs locaux | **Stack** (frame de `main`) | Pointeurs initialisés à `NULL`, durée de vie = jusqu'à la fin de `main` |
+| L51 `alice = person_new("Alice", 30)` | Appel : L14 `malloc(sizeof(Person))` puis L21 `malloc(len+1)` = `malloc(6)` (5 lettres + `'\0'`) | **Heap** (2 blocs distincts et indépendants) | `alice` (stack) pointe vers un bloc `Person` (heap), dont le champ `name` pointe vers un second bloc heap de 6 octets |
+| L52 `bob = person_new("Bob", 41)` | Même schéma : `malloc(sizeof(Person))` puis `malloc(4)` (3 lettres + `'\0'`) | **Heap** | `bob` (stack) → bloc `Person` (heap) → `bob->name` (heap, 4 octets) |
+| L54 `if (!alice \|\| !bob)` | Garde de sécurité | — | Non déclenchée ici (les deux allocations ont réussi) — chemin d'erreur non exécuté |
+| L63-64 `printf(... alice ... bob ...)` | Lecture des pointeurs et champs heap | Heap → Stack (affichage) | Aucune mutation |
+| L66 `free(bob->name)` | Libération du bloc de 4 octets (nom de Bob) | Heap | Bloc libéré **avant** la structure qui le référence — ordre correct |
+| L67 `free(bob)` | Libération de la structure `Person` de Bob | Heap | **Bob est entièrement nettoyé, aucune fuite** : les 2 blocs qui le composaient sont libérés dans le bon ordre |
+| L69 `person_free_partial(alice)` | Appelle uniquement `free(p)` (L41), **jamais `free(p->name)`** | Heap | Le bloc `Person` d'Alice (~16 octets avec padding) est libéré, mais **le bloc de 6 octets `alice->name` devient orphelin** : plus aucun pointeur du programme ne le référence |
+| Sortie de `main` | Fin du programme | — | Le bloc de 6 octets (`"Alice\0"`) n'a **jamais été libéré** → fuite « definitely lost », exactement celle rapportée par Valgrind, avec la ligne d'allocation (`L21`) et le site d'appel (`L51`, celui d'Alice) qui **correspondent exactement** |
 
-**Aliasing observé :** `alice` et `bob` ne sont **pas** des alias l'un de l'autre (deux appels distincts à `person_new` → deux blocs `Person` distincts en heap). En revanche, `alice->name` est en aliasing interne avec le pointeur retourné par `malloc(len+1)` dans `person_new` — aucun autre alias n'est visible dans le code fourni.
+**Durées de vie (lifetimes) :**
+- `alice`, `bob` (pointeurs) : stack, vivent jusqu'à la fin de `main` (L71), même si l'objet qu'ils référencent est libéré avant (ils deviennent alors des pointeurs dangling non réutilisés — pas de bug ici car plus aucun accès n'est fait après `free`).
+- Bloc `Person` de Bob + son `name` : heap, durée de vie de L52 à L66-67 — cycle complet et correct.
+- Bloc `Person` d'Alice : heap, durée de vie de L51 à L69 (libéré).
+- Bloc `name` d'Alice (6 octets) : heap, alloué en L21 (via l'appel L51) — **jamais libéré, fuite avérée jusqu'à la fin du processus**.
 
-### Ce qu'il manque pour compléter cette section
-- La suite de `main` après la vérification `if (!alice || !bob)` (que fait le programme avec `alice`/`bob` valides ? y a-t-il un `person_free_partial(alice)` ou `bob` explicite, et est-ce bien là que la fuite se produit "en vrai" à l'exécution ?)
-- Confirmation par exécution + ASan/`leak sanitizer` de la taille exacte de la fuite.
+**Aliasing observé :** `alice` et `bob` ne sont **pas** des alias l'un de l'autre (deux appels indépendants à `person_new`, deux structures distinctes en heap). `alice->name` est un alias direct du pointeur retourné par `malloc(len+1)` en L21 lors de l'appel L51 ; de même pour `bob->name` via l'appel L52. Aucun autre partage de pointeur dans ce programme.
 
-**➡️ Pour finaliser cette section avec la même rigueur que les trois autres (compilation + exécution + preuve ASan), merci de coller le reste du fichier `heap_example.c` (les ~20 % manquants après la ligne `if (!alice || !bob) { ... }`).**
+### 🔴 Correction IA #3 — asymétrie du traitement Alice/Bob
+
+**Ce qu'une lecture rapide (ou une IA lisant seulement la fonction `person_free_partial`) pourrait affirmer :**
+> « Le programme fuit systématiquement la mémoire de chaque `Person` créée, car `person_free_partial` ne libère jamais le nom. »
+
+**Pourquoi c'est incomplet :** cette lecture ignore que `person_free_partial` n'est **appelée que pour Alice** (L69). Bob suit un chemin de nettoyage totalement différent et **correct**, avec un `free(bob->name)` explicite en L66 avant `free(bob)` en L67. La fuite n'est donc pas une propriété générale du programme, mais le résultat d'un **choix spécifique et localisé** : utiliser la fonction buggée `person_free_partial` uniquement sur Alice. C'est confirmé sans ambiguïté par Valgrind : 1 seul bloc perdu (pas 2), et le site d'appel rapporté est précisément `main:51` (l'affectation d'`alice`), pas `main:52` (celle de `bob`).
 
 ---
 
@@ -179,7 +204,7 @@ Le code fourni s'arrête à `--More--(79%)` dans le terminal ; la fin du fichier
 | `b` (aliasing_example) | `a` | Bloc heap 20 octets | `free(a)` en L38 (au-delà : dangling) |
 | `p_local` (stack_example) | `&local_int` | `local_int` de la frame courante de `dump_frame` | Retour de `dump_frame` (à chaque appel) |
 | `nums` (crash_example) | — (aucun alias) | `NULL` (jamais un vrai bloc heap) | N/A — jamais valide |
-| `alice->name` (heap_example) | Retour de `malloc(len+1)` dans `person_new` | Bloc heap de `len+1` octets | Jamais libéré dans le code visible → fuite |
+| `alice->name` (heap_example) | Retour de `malloc(len+1)` dans `person_new` (L21, appel L51) | Bloc heap de 6 octets (`"Alice\0"`) | Jamais libéré (confirmé Valgrind : `definitely lost`) — `bob->name`, lui, est correctement libéré en L66 |
 
 ---
 
@@ -187,7 +212,7 @@ Le code fourni s'arrête à `--More--(79%)` dans le terminal ; la fin du fichier
 
 L'exercice confirme l'objectif énoncé : une première lecture « à l'œil » ou une explication générée par IA sans vérification tend à (1) ignorer que le use-after-free est un problème de *durée de vie* et non de *bornes*, (2) inverser intuitivement le sens de croissance de la pile, et (3) confondre un `NULL` de garde logique avec un échec d'allocation. Les trois ont été corrigées ici uniquement parce que le code a été **réellement compilé, exécuté, et vérifié par un outil indépendant (ASan)** plutôt que déduit par lecture seule.
 
-### My personal Corrections
+## My personal Corrections
 
 **Error 1 - False claim of universality**
 
